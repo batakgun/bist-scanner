@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIST Tarayıcı — Swing & Trend</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090c10;
+    --surface: #0e1318;
+    --surface2: #141a22;
+    --border: #1e2a35;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --green: #00ff87;
+    --red: #ff3b5c;
+    --yellow: #ffd166;
+    --text: #d4e2ed;
+    --muted: #4a6070;
+    --font-mono: 'Space Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1600px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+    background: rgba(9,12,16,0.95);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  }
+  .logo-mark::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    background: var(--accent);
+    opacity: 0.15;
+  }
+  .logo-mark svg { width: 18px; height: 18px; fill: var(--accent); }
+  .logo-text { font-size: 18px; font-weight: 800; letter-spacing: 2px; }
+  .logo-text span { color: var(--accent); }
+
+  .header-controls { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.05); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+  .btn.primary:hover { background: #33eaff; }
+
+  .status-dot {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .stat-item {
+    padding: 16px 24px;
+    border-right: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-item:hover { background: var(--surface); }
+  .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; font-family: var(--font-mono); }
+  .stat-value { font-size: 22px; font-weight: 800; }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+
+  /* MAIN LAYOUT */
+  .main { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: calc(100vh - 130px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    background: var(--surface);
+    overflow-y: auto;
+    max-height: calc(100vh - 130px);
+    position: sticky;
+    top: 73px;
+  }
+  .sidebar-section { margin-bottom: 28px; }
+  .sidebar-title {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); font-family: var(--font-mono); margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+
+  .filter-group { display: flex; flex-direction: column; gap: 6px; }
+  .filter-label {
+    font-size: 11px; color: var(--muted); font-family: var(--font-mono);
+    margin-top: 10px; margin-bottom: 4px;
+  }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 5px 10px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.2s; border-radius: 2px;
+  }
+  .chip.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .range-slider {
+    -webkit-appearance: none; width: 100%; height: 3px;
+    background: var(--border); outline: none; border-radius: 2px;
+  }
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: var(--accent); border-radius: 50%; cursor: pointer;
+  }
+  .range-display { font-family: var(--font-mono); font-size: 11px; color: var(--accent); margin-top: 6px; }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid rgba(30,42,53,0.5);
+  }
+  .toggle-label { font-size: 12px; font-weight: 600; }
+  .toggle {
+    width: 36px; height: 20px; background: var(--border);
+    border-radius: 10px; position: relative; cursor: pointer; transition: 0.2s;
+    border: none; outline: none;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; width: 14px; height: 14px;
+    background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: 0.2s;
+  }
+  .toggle.on::after { left: 19px; }
+
+  /* CONTENT */
+  .content { padding: 24px; overflow: auto; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .tab {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px;
+    padding: 10px 20px; border: none; background: transparent;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+    text-transform: uppercase; position: relative;
+  }
+  .tab.active { color: var(--accent); }
+  .tab.active::after {
+    content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+    height: 2px; background: var(--accent);
+  }
+  .tab:hover { color: var(--text); }
+
+  /* SCANNER TABLE */
+  .scanner-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+  }
+  .scanner-title { font-size: 14px; font-weight: 700; color: var(--muted); font-family: var(--font-mono); }
+  .scan-time { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted); text-align: left;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  thead th:hover { color: var(--accent); }
+  thead th.sorted { color: var(--accent); }
+  thead th .sort-arrow { margin-left: 4px; }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(30,42,53,0.6);
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 12px 14px; vertical-align: middle; }
+
+  .ticker-cell { display: flex; flex-direction: column; }
+  .ticker-name { font-weight: 700; font-size: 14px; letter-spacing: 0.5px; }
+  .ticker-sector { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+
+  .price-cell { font-family: var(--font-mono); font-weight: 700; }
+  .change { font-family: var(--font-mono); font-size: 12px; font-weight: 700; }
+  .change.pos { color: var(--green); }
+  .change.neg { color: var(--red); }
+
+  /* Signal badges */
+  .signals { display: flex; gap: 4px; flex-wrap: wrap; }
+  .sig {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.5px;
+    padding: 3px 7px; border-radius: 2px; font-weight: 700;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .sig.buy { background: rgba(0,255,135,0.15); color: var(--green); border: 1px solid rgba(0,255,135,0.3); }
+  .sig.sell { background: rgba(255,59,92,0.15); color: var(--red); border: 1px solid rgba(255,59,92,0.3); }
+  .sig.neutral { background: rgba(255,209,102,0.1); color: var(--yellow); border: 1px solid rgba(255,209,102,0.25); }
+
+  /* Score bar */
+  .score-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .score-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+  .score-num { font-family: var(--font-mono); font-size: 12px; font-weight: 700; min-width: 28px; text-align: right; }
+
+  /* Indicator cells */
+  .ind-val { font-family: var(--font-mono); font-size: 12px; }
+  .ind-label { font-size: 9px; color: var(--muted); display: block; }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    display: none;
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: 420px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 200;
+    overflow-y: auto;
+    padding: 28px;
+    animation: slideIn 0.25s ease;
+  }
+  .detail-panel.open { display: block; }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .panel-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    cursor: pointer; width: 28px; height: 28px; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .panel-close:hover { border-color: var(--red); color: var(--red); }
+
+  .panel-ticker { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+  .panel-name { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+
+  .panel-price { font-size: 36px; font-weight: 800; font-family: var(--font-mono); }
+  .panel-change { font-size: 14px; margin-bottom: 24px; font-family: var(--font-mono); font-weight: 700; }
+
+  .ind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+  .ind-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 12px; border-radius: 2px;
+  }
+  .ind-card-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: var(--font-mono); margin-bottom: 4px; }
+  .ind-card-val { font-size: 18px; font-weight: 700; font-family: var(--font-mono); }
+  .ind-card-sub { font-size: 10px; margin-top: 2px; font-family: var(--font-mono); }
+
+  .sr-levels { margin-bottom: 24px; }
+  .sr-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-family: var(--font-mono); }
+  .sr-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; margin-bottom: 4px; border-radius: 2px;
+  }
+  .sr-item.resistance { background: rgba(255,59,92,0.08); border-left: 3px solid var(--red); }
+  .sr-item.support { background: rgba(0,255,135,0.08); border-left: 3px solid var(--green); }
+  .sr-item.current { background: rgba(0,229,255,0.08); border-left: 3px solid var(--accent); }
+  .sr-label { font-size: 11px; font-family: var(--font-mono); }
+  .sr-price { font-size: 13px; font-weight: 700; font-family: var(--font-mono); }
+
+  .signal-summary { }
+  .signal-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .signal-name { font-size: 12px; font-weight: 600; }
+  .signal-val { font-family: var(--font-mono); font-size: 11px; }
+
+  /* Volume bar */
+  .vol-bar-wrap { display: flex; align-items: center; gap: 6px; min-width: 80px; }
+  .vol-bar-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; }
+  .vol-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); opacity: 0.6; }
+  .vol-num { font-family: var(--font-mono); font-size: 11px; color: var(--muted); min-width: 32px; }
+
+  /* BACKDROP */
+  .backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 190;
+  }
+  .backdrop.open { display: block; }
+
+  /* ALERTS SECTION */
+  .alert-banner {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2);
+    padding: 12px 16px; margin-bottom: 20px; font-size: 12px; font-family: var(--font-mono);
+  }
+  .alert-icon { color: var(--accent); font-size: 16px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Scan animation */
+  @keyframes scanLine {
+    0% { top: 0; opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+  .scanning-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(9,12,16,0.85);
+    z-index: 300; align-items: center; justify-content: center; flex-direction: column;
+  }
+  .scanning-overlay.show { display: flex; }
+  .scan-text { font-size: 16px; font-family: var(--font-mono); color: var(--accent); letter-spacing: 3px; margin-bottom: 20px; }
+  .scan-progress { width: 300px; height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .scan-fill { height: 100%; background: var(--accent); animation: scanProgress 2s ease forwards; }
+  @keyframes scanProgress { from { width: 0; } to { width: 100%; } }
+
+  @media (max-width: 1024px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+    .stats-bar { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- SCANNING OVERLAY -->
+<div class="scanning-overlay" id="scanningOverlay">
+  <div class="scan-text">TARAMA YÜRÜTÜLİYOR...</div>
+  <div class="scan-progress"><div class="scan-fill"></div></div>
+</div>
+
+<!-- DETAIL PANEL BACKDROP -->
+<div class="backdrop" id="backdrop" onclick="closePanel()"></div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detailPanel">
+  <button class="panel-close" onclick="closePanel()">✕</button>
+  <div id="panelContent"></div>
+</div>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14l3.5 7L21 14l-3.5-4z"/></svg>
+        </div>
+        <div>
+          <div class="logo-text">BIST <span>SCANNER</span></div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="status-dot">
+          <div class="dot"></div>
+          DEMO MOD
+        </div>
+        <button class="btn" onclick="showApiModal()">API BAĞLANTI</button>
+        <button class="btn primary" onclick="runScan()">▶ TARA</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- STATS BAR -->
+<div class="container" style="padding:0 24px">
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-label">Taranan Hisse</div>
+      <div class="stat-value" id="statTotal">127</div>
+      <div class="stat-sub">BIST 100 + BIST 50</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Alım Sinyali</div>
+      <div class="stat-value" style="color:var(--green)" id="statBuy">23</div>
+      <div class="stat-sub">Güçlü: 8 | Zayıf: 15</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Satış Sinyali</div>
+      <div class="stat-value" style="color:var(--red)" id="statSell">11</div>
+      <div class="stat-sub">Güçlü: 4 | Zayıf: 7</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Nötr</div>
+      <div class="stat-value" style="color:var(--yellow)" id="statNeutral">93</div>
+      <div class="stat-sub">Sinyal bekliyor</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Son Tarama</div>
+      <div class="stat-value" style="font-size:16px" id="statTime">18:42:07</div>
+      <div class="stat-sub">Bugün</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="main">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Sinyal Filtresi</div>
+        <div class="chip-group">
+          <button class="chip active" onclick="filterSignal(this,'all')">Tümü</button>
+          <button class="chip" onclick="filterSignal(this,'buy')">Alım</button>
+          <button class="chip" onclick="filterSignal(this,'sell')">Satış</button>
+          <button class="chip" onclick="filterSignal(this,'neutral')">Nötr</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Strateji</div>
+        <div class="filter-group">
+          <div class="toggle-row">
+            <span class="toggle-label">RSI Divergence</span>
+            <button class="toggle on" id="tog_rsi" onclick="toggleStrategy(this)"></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">MACD Crossover</span>
+            <button class="toggle on" id="tog_macd" onclick="toggleStrategy(this)"></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bollinger Squeeze</span>
+            <button class="toggle on" id="tog_bb" onclick="toggleStrategy(this)"></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">EMA 20/50 Cross</span>
+            <button class="toggle on" id="tog_ema" onclick="toggleStrategy(this)"></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">ADX Trend Gücü</span>
+            <button class="toggle on" id="tog_adx" onclick="toggleStrategy(this)"></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Hacim Artışı</span>
+            <button class="toggle on" id="tog_vol" onclick="toggleStrategy(this)"></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Destek/Direnç</span>
+            <button class="toggle on" id="tog_sr" onclick="toggleStrategy(this)"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Zaman Dilimi</div>
+        <div class="chip-group">
+          <button class="chip" onclick="selectTF(this)">1G</button>
+          <button class="chip active" onclick="selectTF(this)">4S</button>
+          <button class="chip" onclick="selectTF(this)">1S</button>
+          <button class="chip" onclick="selectTF(this)">15D</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">RSI Eşik</div>
+        <div class="filter-label">Aşırı satış (Alım)</div>
+        <input type="range" class="range-slider" min="20" max="40" value="30" oninput="document.getElementById('rsi_low_val').textContent=this.value">
+        <div class="range-display">Eşik: <span id="rsi_low_val">30</span></div>
+        <div class="filter-label" style="margin-top:10px">Aşırı alım (Satış)</div>
+        <input type="range" class="range-slider" min="60" max="80" value="70" oninput="document.getElementById('rsi_high_val').textContent=this.value">
+        <div class="range-display">Eşik: <span id="rsi_high_val">70</span></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Min. Skor</div>
+        <input type="range" class="range-slider" min="0" max="100" value="40" oninput="document.getElementById('score_val').textContent=this.value;filterScore(this.value)">
+        <div class="range-display">Minimum: <span id="score_val">40</span></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Sektör</div>
+        <div class="chip-group">
+          <button class="chip active" onclick="chipToggle(this)">Tümü</button>
+          <button class="chip" onclick="chipToggle(this)">Banka</button>
+          <button class="chip" onclick="chipToggle(this)">Holding</button>
+          <button class="chip" onclick="chipToggle(this)">Sanayi</button>
+          <button class="chip" onclick="chipToggle(this)">Teknoloji</button>
+          <button class="chip" onclick="chipToggle(this)">Enerji</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <div class="alert-banner">
+        <span class="alert-icon">⚡</span>
+        <span>Backend: <b>http://localhost:5000</b> — <b>TARA</b> butonuna basarak gerçek BIST verisini yükleyin. <span style="color:var(--muted)">(scanner.py çalışıyor olmalı)</span></span>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(this,'scanner')">Tarayıcı</button>
+        <button class="tab" onclick="switchTab(this,'swing')">Swing Fırsatlar</button>
+        <button class="tab" onclick="switchTab(this,'trend')">Trend Takip</button>
+        <button class="tab" onclick="switchTab(this,'setup')">Python Kurulum</button>
+      </div>
+
+      <!-- SCANNER TAB -->
+      <div class="tab-content active" id="tab-scanner">
+        <div class="scanner-header">
+          <div class="scanner-title">TARAMA SONUÇLARI — <span id="rowCount">127</span> HİSSE</div>
+          <div class="scan-time" id="scanTimeDisplay">Son güncelleme: 18:42:07</div>
+        </div>
+        <div class="table-wrap">
+          <table id="mainTable">
+            <thead>
+              <tr>
+                <th onclick="sortTable(0)">HİSSE <span class="sort-arrow">↕</span></th>
+                <th onclick="sortTable(1)">FİYAT <span class="sort-arrow">↕</span></th>
+                <th onclick="sortTable(2)">DEĞİŞİM <span class="sort-arrow">↕</span></th>
+                <th>SİNYALLER</th>
+                <th onclick="sortTable(4)">RSI <span class="sort-arrow">↕</span></th>
+                <th>MACD</th>
+                <th onclick="sortTable(6)">ADX <span class="sort-arrow">↕</span></th>
+                <th>BOLLINGER</th>
+                <th>HACİM</th>
+                <th onclick="sortTable(9)">SKOR <span class="sort-arrow">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SWING TAB -->
+      <div class="tab-content" id="tab-swing">
+        <div id="swingContent"></div>
+      </div>
+
+      <!-- TREND TAB -->
+      <div class="tab-content" id="tab-trend">
+        <div id="trendContent"></div>
+      </div>
+
+      <!-- SETUP TAB -->
+      <div class="tab-content" id="tab-setup">
+        <div style="max-width:800px">
+          <h2 style="font-size:20px;font-weight:800;margin-bottom:8px">Python Backend Kurulumu</h2>
+          <p style="color:var(--muted);font-family:var(--font-mono);font-size:12px;margin-bottom:24px">Gerçek BIST verisi için aşağıdaki Python scriptini çalıştırın.</p>
+
+          <div style="margin-bottom:20px">
+            <div style="font-size:11px;color:var(--accent);font-family:var(--font-mono);letter-spacing:1px;margin-bottom:8px">1. BAĞIMLILIKLAR</div>
+            <pre style="background:var(--surface2);border:1px solid var(--border);padding:16px;font-family:var(--font-mono);font-size:12px;color:var(--text);overflow-x:auto;line-height:1.6">pip install yfinance pandas pandas-ta flask flask-cors</pre>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <div style="font-size:11px;color:var(--accent);font-family:var(--font-mono);letter-spacing:1px;margin-bottom:8px">2. PYTHON BACKEND (scanner.py)</div>
+            <pre style="background:var(--surface2);border:1px solid var(--border);padding:16px;font-family:var(--font-mono);font-size:11px;color:var(--text);overflow-x:auto;line-height:1.8">import yfinance as yf
+import pandas as pd
+import pandas_ta as ta
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+# BIST 100 hisseleri listesi
+TICKERS = [
+    "AKBNK.IS","ARCLK.IS","ASELS.IS","BIMAS.IS","EKGYO.IS",
+    "EREGL.IS","FROTO.IS","GARAN.IS","HALKB.IS","ISCTR.IS",
+    "KCHOL.IS","KOZAL.IS","KRDMD.IS","MGROS.IS","PETKM.IS",
+    "SAHOL.IS","SISE.IS","TAVHL.IS","THYAO.IS","TOASO.IS",
+    "TTKOM.IS","TUPRS.IS","VAKBN.IS","VESTL.IS","YKBNK.IS",
+    # ... diğerleri
+]
+
+def analyze(ticker, period="3mo", interval="1d"):
+    try:
+        df = yf.download(ticker, period=period, interval=interval, progress=False)
+        if df.empty or len(df) < 50: return None
+
+        # Teknik indikatörler
+        df['RSI'] = ta.rsi(df['Close'], length=14)
+        macd = ta.macd(df['Close'])
+        df = pd.concat([df, macd], axis=1)
+        df['ADX'] = ta.adx(df['High'], df['Low'], df['Close'])['ADX_14']
+        bb = ta.bbands(df['Close'])
+        df = pd.concat([df, bb], axis=1)
+        df['EMA20'] = ta.ema(df['Close'], length=20)
+        df['EMA50'] = ta.ema(df['Close'], length=50)
+
+        latest = df.iloc[-1]
+        prev = df.iloc[-2]
+        avg_vol = df['Volume'].rolling(20).mean().iloc[-1]
+
+        # Sinyal hesaplama
+        signals = []
+        score = 50  # Başlangıç nötr
+
+        rsi = latest['RSI']
+        if rsi < 30: signals.append("RSI_AŞIRI_SATIŞ"); score += 15
+        elif rsi > 70: signals.append("RSI_AŞIRI_ALIM"); score -= 15
+
+        # MACD crossover
+        if latest['MACD_12_26_9'] > latest['MACDs_12_26_9'] and \
+           prev['MACD_12_26_9'] <= prev['MACDs_12_26_9']:
+            signals.append("MACD_KESIŞ_YUKARI"); score += 20
+        elif latest['MACD_12_26_9'] < latest['MACDs_12_26_9'] and \
+             prev['MACD_12_26_9'] >= prev['MACDs_12_26_9']:
+            signals.append("MACD_KESIŞ_AŞAĞI"); score -= 20
+
+        # EMA crossover
+        if latest['EMA20'] > latest['EMA50'] and prev['EMA20'] <= prev['EMA50']:
+            signals.append("EMA_GOLDEN_CROSS"); score += 25
+        elif latest['EMA20'] < latest['EMA50'] and prev['EMA20'] >= prev['EMA50']:
+            signals.append("EMA_DEATH_CROSS"); score -= 25
+
+        # ADX trend gücü
+        adx = latest['ADX']
+        if adx > 25: signals.append(f"GÜÇLÜ_TREND_{adx:.0f}"); score += 10
+
+        # Bollinger squeeze (band daralması)
+        bb_width = (latest['BBU_5_2.0'] - latest['BBL_5_2.0']) / latest['BBM_5_2.0']
+        avg_bb_width = ((df['BBU_5_2.0'] - df['BBL_5_2.0']) / df['BBM_5_2.0']).rolling(20).mean().iloc[-1]
+        if bb_width < avg_bb_width * 0.7: signals.append("BB_SQUEEZE"); score += 10
+
+        # Hacim artışı
+        vol_ratio = latest['Volume'] / avg_vol if avg_vol > 0 else 1
+        if vol_ratio > 1.5: signals.append(f"HACİM_{vol_ratio:.1f}X"); score += 10
+
+        # Destek/Direnç hesaplama (basit swing high/low)
+        support = df['Low'].rolling(20).min().iloc[-1]
+        resistance = df['High'].rolling(20).max().iloc[-1]
+
+        overall = "BUY" if score >= 65 else "SELL" if score <= 35 else "NEUTRAL"
+
+        return {
+            "ticker": ticker.replace(".IS",""),
+            "price": round(float(latest['Close']), 2),
+            "change": round((float(latest['Close'])-float(prev['Close']))/float(prev['Close'])*100, 2),
+            "rsi": round(float(rsi), 1) if not pd.isna(rsi) else None,
+            "macd": round(float(latest['MACD_12_26_9']), 3),
+            "adx": round(float(adx), 1) if not pd.isna(adx) else None,
+            "bb_pos": round((float(latest['Close'])-float(latest['BBL_5_2.0']))/(float(latest['BBU_5_2.0'])-float(latest['BBL_5_2.0']))*100, 1),
+            "vol_ratio": round(vol_ratio, 2),
+            "support": round(float(support), 2),
+            "resistance": round(float(resistance), 2),
+            "signals": signals,
+            "score": min(100, max(0, score)),
+            "direction": overall
+        }
+    except Exception as e:
+        print(f"Hata {ticker}: {e}")
+        return None
+
+@app.route('/scan')
+def scan():
+    results = []
+    for t in TICKERS:
+        r = analyze(t)
+        if r: results.append(r)
+    return jsonify(results)
+
+@app.route('/detail/&lt;ticker&gt;')
+def detail(ticker):
+    return jsonify(analyze(ticker + ".IS", period="6mo"))
+
+if __name__ == '__main__':
+    app.run(port=5000, debug=True)</pre>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <div style="font-size:11px;color:var(--accent);font-family:var(--font-mono);letter-spacing:1px;margin-bottom:8px">3. ÇALIŞTIR</div>
+            <pre style="background:var(--surface2);border:1px solid var(--border);padding:16px;font-family:var(--font-mono);font-size:12px;color:var(--text)">python scanner.py
+# → http://localhost:5000/scan adresinden veri gelecek</pre>
+          </div>
+
+          <div>
+            <div style="font-size:11px;color:var(--accent);font-family:var(--font-mono);letter-spacing:1px;margin-bottom:8px">4. DASHBOARD'A BAĞLAN</div>
+            <pre style="background:var(--surface2);border:1px solid var(--border);padding:16px;font-family:var(--font-mono);font-size:12px;color:var(--text)">// Bu HTML dosyasında API bağlantısını aktif et:
+const API_URL = 'http://localhost:5000';
+// Sonra "TARA" butonuna basın — gerçek veriler yüklenecek.</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================
+// DEMO DATA
+// =========================================
+const API_URL = 'http://localhost:5000';
+
+const DEMO_DATA = [
+  { ticker:"THYAO", sector:"Havacılık", price:256.40, change:3.2, rsi:38.2, macd:1.23, adx:32.1, bb_pos:18, vol_ratio:2.1, support:240.0, resistance:275.0, signals:["RSI_AŞIRI_SATIŞ","MACD_KESIŞ_YUKARI","HACİM_2.1X"], score:82, direction:"BUY" },
+  { ticker:"GARAN", sector:"Banka", price:42.18, change:1.8, rsi:34.5, macd:0.45, adx:28.4, bb_pos:22, vol_ratio:1.8, support:38.5, resistance:45.0, signals:["RSI_AŞIRI_SATIŞ","EMA_GOLDEN_CROSS"], score:78, direction:"BUY" },
+  { ticker:"AKBNK", sector:"Banka", price:38.62, change:-0.4, rsi:52.1, macd:-0.12, adx:18.2, bb_pos:51, vol_ratio:0.9, support:35.0, resistance:42.0, signals:[], score:50, direction:"NEUTRAL" },
+  { ticker:"EREGL", sector:"Demir/Çelik", price:32.74, change:2.1, rsi:29.8, macd:0.67, adx:35.6, bb_pos:12, vol_ratio:3.2, support:30.0, resistance:37.0, signals:["RSI_AŞIRI_SATIŞ","GÜÇLÜ_TREND_35","HACİM_3.2X","BB_SQUEEZE"], score:88, direction:"BUY" },
+  { ticker:"BIMAS", sector:"Perakende", price:426.50, change:-1.2, rsi:71.4, macd:-1.2, adx:22.1, bb_pos:88, vol_ratio:1.4, support:400.0, resistance:445.0, signals:["RSI_AŞIRI_ALIM","MACD_KESIŞ_AŞAĞI"], score:28, direction:"SELL" },
+  { ticker:"FROTO", sector:"Otomotiv", price:985.30, change:0.8, rsi:55.2, macd:2.1, adx:19.8, bb_pos:60, vol_ratio:1.1, support:940.0, resistance:1020.0, signals:[], score:55, direction:"NEUTRAL" },
+  { ticker:"KCHOL", sector:"Holding", price:168.40, change:4.1, rsi:41.2, macd:1.8, adx:40.2, bb_pos:28, vol_ratio:2.6, support:155.0, resistance:180.0, signals:["MACD_KESIŞ_YUKARI","GÜÇLÜ_TREND_40","HACİM_2.6X"], score:75, direction:"BUY" },
+  { ticker:"TUPRS", sector:"Enerji", price:162.10, change:-2.3, rsi:73.8, macd:-0.9, adx:31.4, bb_pos:92, vol_ratio:1.9, support:148.0, resistance:170.0, signals:["RSI_AŞIRI_ALIM","MACD_KESIŞ_AŞAĞI","HACİM_1.9X"], score:22, direction:"SELL" },
+  { ticker:"ASELS", sector:"Savunma", price:72.45, change:1.5, rsi:48.6, macd:0.23, adx:15.1, bb_pos:48, vol_ratio:0.8, support:68.0, resistance:78.0, signals:[], score:52, direction:"NEUTRAL" },
+  { ticker:"ISCTR", sector:"Banka", price:9.82, change:0.6, rsi:36.4, macd:0.04, adx:26.8, bb_pos:30, vol_ratio:1.5, support:9.0, resistance:11.0, signals:["EMA_GOLDEN_CROSS","GÜÇLÜ_TREND_26"], score:68, direction:"BUY" },
+  { ticker:"SISE", sector:"Cam", price:24.36, change:-1.7, rsi:68.9, macd:-0.3, adx:24.5, bb_pos:82, vol_ratio:1.2, support:22.0, resistance:26.5, signals:["MACD_KESIŞ_AŞAĞI"], score:35, direction:"SELL" },
+  { ticker:"VESTL", sector:"Teknoloji", price:45.18, change:5.2, rsi:32.1, macd:1.45, adx:42.3, bb_pos:15, vol_ratio:4.1, support:40.0, resistance:52.0, signals:["RSI_AŞIRI_SATIŞ","EMA_GOLDEN_CROSS","GÜÇLÜ_TREND_42","HACİM_4.1X","BB_SQUEEZE"], score:92, direction:"BUY" },
+  { ticker:"PETKM", sector:"Kimya", price:6.14, change:-0.8, rsi:58.4, macd:-0.02, adx:12.3, bb_pos:62, vol_ratio:0.7, support:5.8, resistance:6.6, signals:[], score:48, direction:"NEUTRAL" },
+  { ticker:"MGROS", sector:"Perakende", price:184.20, change:-3.1, rsi:76.2, macd:-2.1, adx:38.7, bb_pos:95, vol_ratio:2.3, support:168.0, resistance:195.0, signals:["RSI_AŞIRI_ALIM","EMA_DEATH_CROSS","GÜÇLÜ_TREND_38","HACİM_2.3X"], score:15, direction:"SELL" },
+  { ticker:"KOZAL", sector:"Altın", price:312.80, change:2.9, rsi:44.1, macd:3.2, adx:29.6, bb_pos:35, vol_ratio:1.7, support:290.0, resistance:340.0, signals:["MACD_KESIŞ_YUKARI","GÜÇLÜ_TREND_29"], score:65, direction:"BUY" },
+  { ticker:"SAHOL", sector:"Holding", price:58.94, change:-0.2, rsi:50.8, macd:-0.1, adx:11.2, bb_pos:50, vol_ratio:0.95, support:55.0, resistance:63.0, signals:[], score:50, direction:"NEUTRAL" },
+  { ticker:"HALKB", sector:"Banka", price:12.46, change:1.1, rsi:39.7, macd:0.08, adx:22.4, bb_pos:26, vol_ratio:1.3, support:11.5, resistance:14.0, signals:["BB_SQUEEZE"], score:58, direction:"NEUTRAL" },
+  { ticker:"TTKOM", sector:"Telecom", price:14.32, change:-0.5, rsi:63.2, macd:-0.15, adx:17.6, bb_pos:70, vol_ratio:0.85, support:13.0, resistance:15.5, signals:[], score:42, direction:"NEUTRAL" },
+  { ticker:"VAKBN", sector:"Banka", price:15.78, change:0.9, rsi:37.8, macd:0.12, adx:20.1, bb_pos:24, vol_ratio:1.6, support:14.5, resistance:17.0, signals:["EMA_GOLDEN_CROSS"], score:62, direction:"BUY" },
+  { ticker:"TAVHL", sector:"Turizm", price:102.60, change:3.6, rsi:31.5, macd:0.95, adx:33.8, bb_pos:10, vol_ratio:2.8, support:95.0, resistance:115.0, signals:["RSI_AŞIRI_SATIŞ","GÜÇLÜ_TREND_33","HACİM_2.8X"], score:80, direction:"BUY" },
+];
+
+let currentData = [...DEMO_DATA];
+let currentSignalFilter = 'all';
+let currentScoreMin = 40;
+let sortCol = 9;
+let sortAsc = false;
+
+// =========================================
+// RENDER TABLE
+// =========================================
+function getScoreColor(s) {
+  if(s >= 70) return 'var(--green)';
+  if(s <= 30) return 'var(--red)';
+  return 'var(--yellow)';
+}
+
+function getRsiColor(r) {
+  if(r < 30) return 'var(--green)';
+  if(r > 70) return 'var(--red)';
+  return 'var(--text)';
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  if(!data.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted);font-family:var(--font-mono)">Filtre kriterlerine uygun hisse bulunamadı.</td></tr>`;
+    document.getElementById('rowCount').textContent = 0;
+    return;
+  }
+  document.getElementById('rowCount').textContent = data.length;
+  tbody.innerHTML = data.map(d => {
+    const dir = d.direction === 'BUY' ? 'buy' : d.direction === 'SELL' ? 'sell' : 'neutral';
+    const chClass = d.change >= 0 ? 'pos' : 'neg';
+    const chSign = d.change >= 0 ? '+' : '';
+    const sigs = d.signals.slice(0,3).map(s => {
+      const cls = s.includes('YUKARI')||s.includes('GOLDEN')||s.includes('SATIŞ')||s.includes('TREND')||s.includes('HACİM')||s.includes('SQUEEZE') ? 'buy' : s.includes('ALIM')||s.includes('AŞAĞI')||s.includes('DEATH') ? 'sell' : 'neutral';
+      const isSellSig = s.includes('ALIM')||s.includes('AŞAĞI')||s.includes('DEATH');
+      return `<span class="sig ${isSellSig ? 'sell' : 'buy'}">${s.replace('_',' ')}</span>`;
+    }).join('');
+    const scorePct = d.score;
+    const scoreColor = getScoreColor(d.score);
+    const volPct = Math.min(100, d.vol_ratio * 50);
+    const bbLabel = d.bb_pos < 20 ? '▼ Alt Bant' : d.bb_pos > 80 ? '▲ Üst Bant' : '— Orta';
+    const bbColor = d.bb_pos < 20 ? 'var(--green)' : d.bb_pos > 80 ? 'var(--red)' : 'var(--muted)';
+    return `
+    <tr onclick="openPanel('${d.ticker}')">
+      <td><div class="ticker-cell"><span class="ticker-name">${d.ticker}</span><span class="ticker-sector">${d.sector}</span></div></td>
+      <td><span class="price-cell">₺${d.price.toLocaleString('tr-TR',{minimumFractionDigits:2})}</span></td>
+      <td><span class="change ${chClass}">${chSign}${d.change.toFixed(2)}%</span></td>
+      <td><div class="signals">${sigs || '<span class="sig neutral">—</span>'}</div></td>
+      <td><span class="ind-val" style="color:${getRsiColor(d.rsi)}">${d.rsi}</span></td>
+      <td><span class="ind-val" style="color:${d.macd>0?'var(--green)':'var(--red)'}; font-size:11px">${d.macd>0?'+':''}${d.macd}</span></td>
+      <td><span class="ind-val" style="color:${d.adx>25?'var(--accent)':'var(--muted)'}">${d.adx}</span></td>
+      <td><span class="ind-val" style="color:${bbColor};font-size:11px">${bbLabel}</span></td>
+      <td>
+        <div class="vol-bar-wrap">
+          <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${volPct}%;background:${d.vol_ratio>1.5?'var(--green)':'var(--accent)'}"></div></div>
+          <span class="vol-num">${d.vol_ratio}x</span>
+        </div>
+      </td>
+      <td>
+        <div class="score-wrap">
+          <div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${scoreColor}"></div></div>
+          <span class="score-num" style="color:${scoreColor}">${scorePct}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// =========================================
+// FILTER & SORT
+// =========================================
+function applyFilters() {
+  let data = [...DEMO_DATA];
+  if(currentSignalFilter !== 'all') {
+    data = data.filter(d => {
+      if(currentSignalFilter === 'buy') return d.direction === 'BUY';
+      if(currentSignalFilter === 'sell') return d.direction === 'SELL';
+      return d.direction === 'NEUTRAL';
+    });
+  }
+  data = data.filter(d => d.score >= currentScoreMin);
+  // sort
+  data.sort((a,b) => {
+    const cols = ['ticker','price','change','signals','rsi','macd','adx','bb_pos','vol_ratio','score'];
+    const col = cols[sortCol] || 'score';
+    let va = a[col], vb = b[col];
+    if(typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+  currentData = data;
+  renderTable(data);
+  renderSwingTab(data);
+  renderTrendTab(data);
+}
+
+function filterSignal(el, val) {
+  document.querySelectorAll('.chip').forEach(c => { if(['all','buy','sell','neutral'].includes(c.textContent.toLowerCase().trim().replace('ı','i').replace('ü','u'))) {} });
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentSignalFilter = val;
+  applyFilters();
+}
+
+function filterScore(val) {
+  currentScoreMin = parseInt(val);
+  applyFilters();
+}
+
+function sortTable(col) {
+  if(sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = false; }
+  applyFilters();
+}
+
+function selectTF(el) {
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function chipToggle(el) {
+  el.classList.toggle('active');
+}
+
+function toggleStrategy(el) { el.classList.toggle('on'); }
+
+// =========================================
+// SWING & TREND TABS
+// =========================================
+function renderSwingTab(data) {
+  const swingStocks = data.filter(d =>
+    d.signals.some(s => s.includes('RSI') || s.includes('BB') || s.includes('MACD'))
+  ).sort((a,b) => b.score - a.score).slice(0,8);
+
+  document.getElementById('swingContent').innerHTML = `
+    <div style="margin-bottom:20px">
+      <h3 style="font-size:14px;font-weight:800;margin-bottom:4px;color:var(--accent)">SWING TRADİNG FIRSATLARI</h3>
+      <p style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">RSI aşırı bölgeler, MACD kesişim ve Bollinger squeeze sinyalleri</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+    ${swingStocks.map(d => {
+      const scoreColor = getScoreColor(d.score);
+      const dir = d.direction === 'BUY' ? '▲ ALIM' : '▼ SATIŞ';
+      const dirColor = d.direction === 'BUY' ? 'var(--green)' : 'var(--red)';
+      const chSign = d.change >= 0 ? '+' : '';
+      return `
+      <div style="background:var(--surface);border:1px solid var(--border);padding:20px;cursor:pointer;transition:border-color 0.2s" onclick="openPanel('${d.ticker}')" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+          <div>
+            <div style="font-size:20px;font-weight:800">${d.ticker}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">${d.sector}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:700;color:${dirColor};font-family:var(--font-mono)">${dir}</div>
+            <div style="font-size:12px;font-family:var(--font-mono);color:${getScoreColor(d.score)}">Skor: ${d.score}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:var(--surface2);padding:8px;border-radius:2px">
+            <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">RSI</div>
+            <div style="font-size:16px;font-weight:700;color:${getRsiColor(d.rsi)}">${d.rsi}</div>
+          </div>
+          <div style="background:var(--surface2);padding:8px;border-radius:2px">
+            <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">MACD</div>
+            <div style="font-size:16px;font-weight:700;color:${d.macd>0?'var(--green)':'var(--red)'}">${d.macd>0?'+':''}${d.macd}</div>
+          </div>
+          <div style="background:var(--surface2);padding:8px;border-radius:2px">
+            <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">BB %</div>
+            <div style="font-size:16px;font-weight:700">${d.bb_pos}%</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${d.signals.map(s => {
+            const isSell = s.includes('ALIM')||s.includes('AŞAĞI')||s.includes('DEATH');
+            return `<span class="sig ${isSell?'sell':'buy'}">${s.replace(/_/g,' ')}</span>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <span style="font-family:var(--font-mono);font-size:13px;font-weight:700">₺${d.price.toLocaleString('tr-TR',{minimumFractionDigits:2})}</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:${d.change>=0?'var(--green)':'var(--red)'}">${d.change>=0?'+':''}${d.change}%</span>
+        </div>
+      </div>`;
+    }).join('')}
+    </div>`;
+}
+
+function renderTrendTab(data) {
+  const trendStocks = data.filter(d =>
+    d.signals.some(s => s.includes('TREND')||s.includes('GOLDEN')||s.includes('DEATH')||s.includes('EMA'))
+  ).sort((a,b) => b.adx - a.adx).slice(0,8);
+
+  document.getElementById('trendContent').innerHTML = `
+    <div style="margin-bottom:20px">
+      <h3 style="font-size:14px;font-weight:800;margin-bottom:4px;color:var(--accent)">TREND TAKİP FIRSATLARI</h3>
+      <p style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">EMA crossover, ADX güçlü trend ve yön sinyalleri</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+    ${trendStocks.map(d => {
+      const dir = d.direction === 'BUY' ? '▲ YUKARI' : '▼ AŞAĞI';
+      const dirColor = d.direction === 'BUY' ? 'var(--green)' : 'var(--red)';
+      const trendStrength = d.adx > 40 ? 'ÇOK GÜÇLÜ' : d.adx > 25 ? 'GÜÇLÜ' : 'ZAYIF';
+      const trendColor = d.adx > 40 ? 'var(--green)' : d.adx > 25 ? 'var(--accent)' : 'var(--muted)';
+      return `
+      <div style="background:var(--surface);border:1px solid var(--border);padding:20px;cursor:pointer;transition:border-color 0.2s" onclick="openPanel('${d.ticker}')" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+          <div>
+            <div style="font-size:20px;font-weight:800">${d.ticker}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">${d.sector}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:700;color:${dirColor};font-family:var(--font-mono)">${dir}</div>
+            <div style="font-size:11px;color:${trendColor};font-family:var(--font-mono)">${trendStrength} TREND</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:var(--surface2);padding:8px;border-radius:2px">
+            <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">ADX</div>
+            <div style="font-size:16px;font-weight:700;color:${trendColor}">${d.adx}</div>
+          </div>
+          <div style="background:var(--surface2);padding:8px;border-radius:2px">
+            <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">EMA Pozisyon</div>
+            <div style="font-size:13px;font-weight:700;color:${d.direction==='BUY'?'var(--green)':'var(--red)'}">${d.direction==='BUY'?'EMA20 > EMA50':'EMA20 < EMA50'}</div>
+          </div>
+          <div style="background:var(--surface2);padding:8px;border-radius:2px">
+            <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">Hacim</div>
+            <div style="font-size:16px;font-weight:700;color:${d.vol_ratio>1.5?'var(--green)':'var(--muted)'}">${d.vol_ratio}x</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--muted)">Destek: <span style="color:var(--green)">₺${d.support}</span></div>
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--muted)">Direnç: <span style="color:var(--red)">₺${d.resistance}</span></div>
+        </div>
+      </div>`;
+    }).join('')}
+    </div>`;
+}
+
+// =========================================
+// DETAIL PANEL
+// =========================================
+function openPanel(ticker) {
+  const d = DEMO_DATA.find(x => x.ticker === ticker);
+  if(!d) return;
+  const dir = d.direction === 'BUY' ? 'BUY ▲' : d.direction === 'SELL' ? 'SELL ▼' : 'NEUTRAL —';
+  const dirColor = d.direction === 'BUY' ? 'var(--green)' : d.direction === 'SELL' ? 'var(--red)' : 'var(--yellow)';
+  const chSign = d.change >= 0 ? '+' : '';
+
+  document.getElementById('panelContent').innerHTML = `
+    <div class="panel-ticker">${d.ticker}</div>
+    <div class="panel-name">${d.sector} · BIST</div>
+    <div class="panel-price">₺${d.price.toLocaleString('tr-TR',{minimumFractionDigits:2})}</div>
+    <div class="panel-change" style="color:${d.change>=0?'var(--green)':'var(--red)'}">${chSign}${d.change}% bugün &nbsp; <span style="color:${dirColor}">${dir}</span></div>
+
+    <div class="ind-grid">
+      <div class="ind-card">
+        <div class="ind-card-label">RSI (14)</div>
+        <div class="ind-card-val" style="color:${getRsiColor(d.rsi)}">${d.rsi}</div>
+        <div class="ind-card-sub" style="color:${getRsiColor(d.rsi)}">${d.rsi<30?'Aşırı Satış':d.rsi>70?'Aşırı Alım':'Normal'}</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-card-label">MACD</div>
+        <div class="ind-card-val" style="color:${d.macd>0?'var(--green)':'var(--red)'}">${d.macd>0?'+':''}${d.macd}</div>
+        <div class="ind-card-sub" style="color:var(--muted)">${d.macd>0?'Pozitif':'Negatif'}</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-card-label">ADX (Trend Gücü)</div>
+        <div class="ind-card-val" style="color:${d.adx>25?'var(--accent)':'var(--muted)'}">${d.adx}</div>
+        <div class="ind-card-sub" style="color:var(--muted)">${d.adx>40?'Çok güçlü':d.adx>25?'Güçlü trend':'Zayıf'}</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-card-label">Bollinger Pozisyon</div>
+        <div class="ind-card-val">${d.bb_pos}%</div>
+        <div class="ind-card-sub" style="color:${d.bb_pos<20?'var(--green)':d.bb_pos>80?'var(--red)':'var(--muted)'}">${d.bb_pos<20?'Alt banda yakın':d.bb_pos>80?'Üst banda yakın':'Orta bölge'}</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-card-label">Hacim (vs Ort.)</div>
+        <div class="ind-card-val" style="color:${d.vol_ratio>1.5?'var(--green)':'var(--muted)'}">${d.vol_ratio}x</div>
+        <div class="ind-card-sub" style="color:var(--muted)">${d.vol_ratio>1.5?'Yüksek hacim':'Normal hacim'}</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-card-label">Genel Skor</div>
+        <div class="ind-card-val" style="color:${getScoreColor(d.score)}">${d.score}/100</div>
+        <div class="ind-card-sub" style="color:${getScoreColor(d.score)}">${d.score>=70?'Güçlü sinyal':d.score<=30?'Satış baskısı':'Nötr'}</div>
+      </div>
+    </div>
+
+    <div class="sr-levels">
+      <div class="sr-title">Destek / Direnç Seviyeleri</div>
+      <div class="sr-item resistance">
+        <span class="sr-label">Direnç</span>
+        <span class="sr-price" style="color:var(--red)">₺${d.resistance}</span>
+      </div>
+      <div class="sr-item current">
+        <span class="sr-label">Mevcut Fiyat</span>
+        <span class="sr-price" style="color:var(--accent)">₺${d.price}</span>
+      </div>
+      <div class="sr-item support">
+        <span class="sr-label">Destek</span>
+        <span class="sr-price" style="color:var(--green)">₺${d.support}</span>
+      </div>
+    </div>
+
+    <div class="signal-summary">
+      <div class="sr-title">Aktif Sinyaller</div>
+      ${d.signals.length ? d.signals.map(s => {
+        const isSell = s.includes('ALIM')||s.includes('AŞAĞI')||s.includes('DEATH');
+        return `
+        <div class="signal-row">
+          <span class="signal-name">${s.replace(/_/g,' ')}</span>
+          <span class="sig ${isSell?'sell':'buy'}">${isSell?'SATIŞ':'ALIM'}</span>
+        </div>`;
+      }).join('') : '<div style="color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:16px 0">Aktif sinyal bulunamadı</div>'}
+    </div>`;
+
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+}
+
+// =========================================
+// TABS
+// =========================================
+function switchTab(el, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+function showSetup() {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[3].classList.add('active');
+  document.getElementById('tab-setup').classList.add('active');
+}
+
+// =========================================
+// SCAN ANIMATION
+// =========================================
+async function runScan() {
+  const overlay = document.getElementById('scanningOverlay');
+  overlay.classList.add('show');
+  overlay.innerHTML = `
+    <div class="scan-text" id="scanMsg">BIST VERİSİ ÇEKILIYOR...</div>
+    <div class="scan-progress"><div class="scan-fill"></div></div>`;
+
+  try {
+    document.getElementById('scanMsg').textContent = 'YAHOO FİNANCE\'DAN VERİ ALINIYOR...';
+    const response = await fetch(API_URL + '/scan');
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+
+    document.getElementById('scanMsg').textContent = 'VERİ İŞLENİYOR...';
+    await new Promise(r => setTimeout(r, 400));
+
+    // DEMO_DATA'yı gerçek veriyle güncelle
+    DEMO_DATA.length = 0;
+    data.forEach(d => DEMO_DATA.push(d));
+
+    // İstatistikleri güncelle
+    const buyCount  = data.filter(d => d.direction === 'BUY').length;
+    const sellCount = data.filter(d => d.direction === 'SELL').length;
+    const neutCount = data.filter(d => d.direction === 'NEUTRAL').length;
+    document.getElementById('statTotal').textContent   = data.length;
+    document.getElementById('statBuy').textContent     = buyCount;
+    document.getElementById('statSell').textContent    = sellCount;
+    document.getElementById('statNeutral').textContent = neutCount;
+
+    const now = new Date();
+    const t = now.toTimeString().slice(0,8);
+    document.getElementById('statTime').textContent = t;
+    document.getElementById('scanTimeDisplay').textContent = 'Son güncelleme: ' + t;
+
+    document.getElementById('scanMsg').textContent = `TAMAMLANDI ✓  —  ${data.length} hisse analiz edildi`;
+    await new Promise(r => setTimeout(r, 800));
+
+    overlay.classList.remove('show');
+    applyFilters();
+
+  } catch(err) {
+    overlay.classList.remove('show');
+    alert('Backend\'e bağlanılamadı!\n\nHata: ' + err.message + '\n\nscanner.py çalışıyor mu? Terminalde şunu deneyin:\n  python scanner.py');
+  }
+}
+
+function showApiModal() {
+  alert('Backend zaten bağlı: ' + API_URL + '\nTARA butonuna basın.');
+}
+
+// =========================================
+// INIT
+// =========================================
+applyFilters();
+</script>
+</body>
+</html>
