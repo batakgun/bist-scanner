@@ -2,24 +2,34 @@
 BIST 100 Teknik Analiz Tarayici - Backend
 ==========================================
 Kurulum:
-    pip install yfinance pandas ta flask flask-cors
+    pip install yfinance pandas ta flask flask-cors requests
 
 Calistirma:
     python scanner.py
-
-API: http://localhost:5000/scan
 """
 
 import yfinance as yf
 import pandas as pd
 import ta
+import requests
 from flask import Flask, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-# Midas'tan alinmis gunccel BIST 100 listesi (Subat 2025)
+# Yahoo Finance engelini asmak icin session ayarlari
+def get_yf_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+    })
+    return session
+
 TICKERS = {
     "AEFES.IS":  "Icecek",
     "AGHOL.IS":  "Holding",
@@ -126,8 +136,10 @@ TICKERS = {
 
 def analyze(ticker, sector, period="3mo", interval="1d"):
     try:
-        df = yf.download(ticker, period=period, interval=interval,
-                         progress=False, auto_adjust=True)
+        session = get_yf_session()
+        t = yf.Ticker(ticker, session=session)
+        df = t.history(period=period, interval=interval, auto_adjust=True)
+
         if df.empty or len(df) < 50:
             print(f"  [ATLA] {ticker}: yeterli veri yok")
             return None
@@ -244,7 +256,7 @@ def scan():
         r = analyze(ticker, sector)
         if r:
             results.append(r)
-    print(f"\n>>> Tamamlandi — {len(results)} hisse basariyla analiz edildi.\n")
+    print(f"\n>>> Tamamlandi — {len(results)} hisse analiz edildi.\n")
     return jsonify(results)
 
 
@@ -252,6 +264,11 @@ def scan():
 def detail(ticker):
     sector = TICKERS.get(ticker + ".IS", "BIST")
     return jsonify(analyze(ticker + ".IS", sector, period="6mo"))
+
+
+@app.route("/")
+def index():
+    return jsonify({"status": "ok", "message": "BIST 100 Scanner API calisıyor"})
 
 
 if __name__ == "__main__":
